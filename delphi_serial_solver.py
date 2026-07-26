@@ -11,7 +11,7 @@ un acumulador (edi) que depende de todos los caracteres anteriores, y despues re
 el resultado modulo 90 hasta caer en el rango ASCII '0'-'Z' (0x30-0x5a).
 
 Uso:
-    python3 crackme_solver.py
+    python3 delphi_serial_solver.py
     (o importa encode()/find_password() desde otro script)
 """
 
@@ -79,6 +79,48 @@ def find_password(target: str, charset=range(0x20, 0x7f)):
     return None
 
 
+def find_all_passwords(target: str, charset=range(0x20, 0x7f), limit=None):
+    """Generador que va devolviendo, de a una, TODAS las contraseñas válidas
+    (o hasta 'limit' si se especifica). Útil para ver si la solución es única
+    o si hay muchas contraseñas distintas que también funcionan."""
+    length = len(target)
+    solution = [None] * length
+    count = 0
+
+    def search(pos, edi):
+        nonlocal count
+        if limit is not None and count >= limit:
+            return
+        if pos == length:
+            count += 1
+            yield ''.join(chr(c) for c in solution)
+            return
+        target_char = ord(target[pos])
+        i = pos + 1
+        for c in charset:
+            edi_new, out = step(edi, c, i, length)
+            if out == target_char:
+                solution[pos] = c
+                yield from search(pos + 1, edi_new)
+                if limit is not None and count >= limit:
+                    return
+
+    yield from search(0, 0)
+
+
+def count_candidates_per_position(target: str, charset=range(0x20, 0x7f)):
+    """Cuenta, para el primer caracter (edi=0), cuántos valores de entrada
+    producen el caracter esperado. Da una idea rápida de qué tan 'ancho'
+    es el árbol de búsqueda sin tener que enumerar todo."""
+    length = len(target)
+    matches = []
+    for c in charset:
+        _, out = step(0, c, 1, length)
+        if out == ord(target[0]):
+            matches.append(chr(c))
+    return matches
+
+
 if __name__ == "__main__":
     TARGET = "DD@2=?1U7>K2"  # string hardcodeado en 0x428864->+0x74
 
@@ -89,3 +131,13 @@ if __name__ == "__main__":
     if password:
         print("Verificacion encode(password) == target:",
               encode(password) == TARGET)
+
+    print()
+    print("--- Buscando si hay otras contrasenas validas ---")
+    print("Candidatos posibles solo para la posicion 0:",
+          count_candidates_per_position(TARGET))
+
+    print()
+    print("Primeras 5 contrasenas distintas que tambien funcionan:")
+    for i, pw in enumerate(find_all_passwords(TARGET, limit=5), start=1):
+        print(f"  {i}. {pw!r}  -> encode() == target: {encode(pw) == TARGET}")
