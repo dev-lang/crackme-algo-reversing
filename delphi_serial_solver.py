@@ -76,37 +76,66 @@ def encode(password: str) -> str:
     return ''.join(out)
 
 
+BANNER = r"""
+   ______           __              ___
+  / ____/________ _/ /______ ____  / _ \___ __ _____
+ / /   / ___/ __ `/ //_/ __ `/ __ \/ , _/ -_) |/ / -_)
+/ /___/ /  / /_/ / ,< / /_/ / / / /_/|_|\__/|___/\__/
+\____/_/   \__,_/_/|_|\__,_/_/ /_/
+
+           Delphi TEdit serial algo -- keygen
+           algoritmo invertido via GDB + backtracking
+"""
+
+DIVIDER = "-" * 56
+
+
+def _print_result(password: str, target: str):
+    print(DIVIDER)
+    print(f"  [+] Serial encontrado : {password}")
+    print(f"  [+] Target            : {target}")
+    print(f"  [+] Valido             : {'SI' if encode(password) == target else 'NO'}")
+    print(DIVIDER)
+
+
 def main():
     parser = argparse.ArgumentParser(
-        description="Keygen solver para el algoritmo de este crackme (Delphi)")
+        description="Keygen para el algoritmo de este crackme (Delphi)")
     parser.add_argument("--target", default=DEFAULT_TARGET,
                          help="String hardcodeado contra el que compara el binario")
     parser.add_argument("--charset", default="printable",
                          choices=CHARSETS.keys(),
                          help="Conjunto de caracteres a probar para la contrasena")
     parser.add_argument("--all", type=int, metavar="N", default=None,
-                         help="En vez de una sola, mostrar N contrasenas validas distintas")
+                         help="Generar N seriales validos distintos en vez de uno solo")
+    parser.add_argument("--quiet", action="store_true",
+                         help="No mostrar el banner, solo el serial")
     args = parser.parse_args()
 
     charset = CHARSETS[args.charset]
 
+    if not args.quiet:
+        print(BANNER)
+
     if args.all:
-        print(f"Buscando {args.all} contrasenas validas para target={args.target!r}\n")
+        print(f"  Generando {args.all} seriales validos...\n")
+        print(DIVIDER)
         for i, pw in enumerate(find_all_passwords(args.target, step, charset, limit=args.all), start=1):
-            ok = encode(pw) == args.target
-            print(f"  {i}. {pw!r}  (encode == target: {ok})")
+            print(f"  [{i:>2}] {pw}")
+        print(DIVIDER)
         return
 
     password = find_password(args.target, step, charset)
-    print("Target  :", args.target)
-    print("Password:", password)
-    if password:
-        print("Verificacion encode(password) == target:", encode(password) == args.target)
+    if password is None:
+        print("  [!] No se encontro ningun serial valido con este charset.")
+        return
 
-    print()
-    print("Candidatos posibles solo para la primera posicion:",
-          count_candidates_first_position(args.target, step, charset))
-    print("(si hay mas de uno, la contrasena NO es unica)")
+    _print_result(password, args.target)
+
+    candidates = count_candidates_first_position(args.target, step, charset)
+    if len(candidates) > 1:
+        print(f"  (nota: el serial no es unico -- {len(candidates)} opciones "
+              f"posibles solo para el primer caracter)")
 
 
 if __name__ == "__main__":
